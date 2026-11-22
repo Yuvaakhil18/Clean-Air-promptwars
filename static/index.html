@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Clean Air Companion: get personalised air-quality routines, indoor tips and lower-emission alternatives for your household.">
+  <title>Clean Air Companion</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <main id="main" class="board" tabindex="-1">
+    <header class="tile tile-intro">
+      <h1>Clean air, practical steps</h1>
+      <p>Tell us about your location, household and daily routine. Get routines, indoor air hacks and lower-emission alternatives, with an explanation of what each choice changes.</p>
+    </header>
+
+    <section class="tile tile-form" aria-labelledby="form-title">
+      <h2 id="form-title">Your situation</h2>
+      <form id="advice-form" novalidate>
+        <fieldset>
+          <legend>Where you are</legend>
+          <div class="field">
+            <label for="location">Town or city</label>
+            <input id="location" name="location" type="text" maxlength="100" required
+                   autocomplete="address-level2" placeholder="Your town or city"
+                   aria-required="true">
+          </div>
+          <div class="field">
+            <label for="pm25">PM2.5 reading today (optional)</label>
+            <input id="pm25" name="pm25" type="number" min="0" max="1000" step="0.1"
+                   aria-describedby="pm25-hint">
+            <p id="pm25-hint" class="hint">From a local monitor or air-quality app, in µg/m³. Leave blank for a general estimate.</p>
+          </div>
+          <div class="field">
+            <label for="aqi_scale">Scale your reading uses</label>
+            <select id="aqi_scale" name="aqi_scale">
+              <option value="us_epa">US EPA</option>
+              <option value="india_naqi">India NAQI</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Your household</legend>
+          <div class="field">
+            <label for="adults">Adults</label>
+            <input id="adults" name="adults" type="number" min="1" max="20" step="1" value="1" required aria-required="true">
+          </div>
+          <div class="field">
+            <label for="children">Children under 18</label>
+            <input id="children" name="children" type="number" min="0" max="20" step="1" value="0">
+          </div>
+          <div class="field">
+            <label for="older_adults">Older adults (65 and over)</label>
+            <input id="older_adults" name="older_adults" type="number" min="0" max="20" step="1" value="0">
+          </div>
+          <div class="check">
+            <input id="pregnant" name="pregnant" type="checkbox">
+            <label for="pregnant">Someone in the household is pregnant</label>
+          </div>
+          <div class="check">
+            <input id="respiratory_condition" name="respiratory_condition" type="checkbox">
+            <label for="respiratory_condition">Someone has asthma, COPD or another breathing condition</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Your home</legend>
+          <div class="field">
+            <label for="home">Type of home</label>
+            <select id="home" name="home">
+              <option value="apartment">Apartment or flat</option>
+              <option value="house">House</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cooking_fuel">Main cooking fuel</label>
+            <select id="cooking_fuel" name="cooking_fuel">
+              <option value="lpg">LPG or natural gas</option>
+              <option value="electric">Electric or induction</option>
+              <option value="biomass">Wood, charcoal or crop residue</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="room_area_m2">Main room area (m²)</label>
+            <input id="room_area_m2" name="room_area_m2" type="number" min="5" max="500" step="0.5" value="15" required aria-required="true">
+          </div>
+          <div class="field">
+            <label for="ceiling_height_m">Ceiling height (m)</label>
+            <input id="ceiling_height_m" name="ceiling_height_m" type="number" min="2" max="5" step="0.1" value="2.5" required aria-required="true">
+          </div>
+          <div class="check">
+            <input id="has_purifier" name="has_purifier" type="checkbox">
+            <label for="has_purifier">I have an air purifier for this room</label>
+          </div>
+          <div class="field">
+            <label for="purifier_cadr_m3h">Purifier CADR (m³/h, optional)</label>
+            <input id="purifier_cadr_m3h" name="purifier_cadr_m3h" type="number" min="0" max="2000" step="1"
+                   aria-describedby="cadr-hint">
+            <p id="cadr-hint" class="hint">Clean air delivery rate from the product label. Leave blank if unknown.</p>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Your routine</legend>
+          <div class="field">
+            <label for="commute_mode">Usual way to get around</label>
+            <select id="commute_mode" name="commute_mode">
+              <option value="car">Car</option>
+              <option value="motorbike">Motorbike or scooter</option>
+              <option value="bus">Bus</option>
+              <option value="train">Train or metro</option>
+              <option value="bicycle">Bicycle</option>
+              <option value="walk">Walking</option>
+              <option value="remote">Working from home</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="commute_km">One-way distance (km)</label>
+            <input id="commute_km" name="commute_km" type="number" min="0" max="300" step="0.5" value="10">
+          </div>
+          <div class="field">
+            <label for="commute_days_per_week">Commute days per week</label>
+            <input id="commute_days_per_week" name="commute_days_per_week" type="number" min="0" max="7" step="1" value="5">
+          </div>
+          <div class="check">
+            <input id="outdoor_work" name="outdoor_work" type="checkbox">
+            <label for="outdoor_work">Work or spend long periods outdoors</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Anything else?</legend>
+          <div class="field">
+            <label for="notes">Context that helps (optional)</label>
+            <textarea id="notes" name="notes" rows="3" maxlength="500"
+                      aria-describedby="notes-hint"></textarea>
+            <p id="notes-hint" class="hint">For example: ground-floor flat, near a busy road, school run on foot.</p>
+          </div>
+        </fieldset>
+
+        <button type="submit" id="submit-button" class="primary">Show my plan</button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="results" class="results" aria-label="Your plan" aria-live="polite" tabindex="-1">
+      <div class="tile tile-empty">
+        <h2>Your plan appears here</h2>
+        <p>Add your location and household details, then show your plan. You will see your risk level, what each choice changes, and practical routines.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
