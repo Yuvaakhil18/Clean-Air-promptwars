@@ -9,6 +9,7 @@ from app.narrative import (
     MAX_PERSONAL_TIPS,
     SUMMARY_LIMIT,
     TIP_LIMIT,
+    asummarise,
     build_user_prompt,
     parse_summary,
     summarise,
@@ -196,5 +197,49 @@ def test_summarise_returns_ai_on_success(make_request):
 def test_summarise_falls_back_on_generator_error(make_request):
     """LLM failure must gracefully degrade to template."""
     _summary, tips, source = summarise(make_request(), _assessment(), _FailGenerator())
+    assert source == "template"
+    assert tips == []
+
+
+class _AsyncFakeGenerator:
+    def __init__(self, reply: str) -> None:
+        self.reply = reply
+
+    async def agenerate(self, system: str, user: str) -> str:
+        return self.reply
+
+
+@pytest.mark.anyio
+async def test_asummarise_returns_template_when_no_generator(make_request):
+    """asummarise without generator returns template fallback."""
+    summary, tips, source = await asummarise(make_request(), _assessment(), generator=None)
+    assert source == "template"
+    assert tips == []
+    assert summary
+
+
+@pytest.mark.anyio
+async def test_asummarise_with_async_generator(make_request):
+    """asummarise with an async generator produces ai summary."""
+    reply = json.dumps({"summary": "Async AI summary.", "personal_tips": ["Tip 1"]})
+    summary, tips, source = await asummarise(make_request(), _assessment(), _AsyncFakeGenerator(reply))
+    assert source == "ai"
+    assert summary == "Async AI summary."
+    assert tips == ["Tip 1"]
+
+
+@pytest.mark.anyio
+async def test_asummarise_with_sync_generator_fallback(make_request):
+    """asummarise works with a synchronous generator by falling back to generate()."""
+    reply = json.dumps({"summary": "Sync fallback summary.", "personal_tips": []})
+    summary, _tips, source = await asummarise(make_request(), _assessment(), _FakeGenerator(reply))
+    assert source == "ai"
+    assert summary == "Sync fallback summary."
+
+
+@pytest.mark.anyio
+async def test_asummarise_degrades_on_error(make_request):
+    """asummarise catches errors and degrades gracefully to template."""
+    _summary, tips, source = await asummarise(make_request(), _assessment(), _FailGenerator())
     assert source == "template"
     assert tips == []

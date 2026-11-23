@@ -89,3 +89,31 @@ def test_invalid_input_is_rejected(client, overrides):
 def test_control_characters_stripped_from_location(client):
     body = client.post("/api/advice", json=payload(location="River\x00side")).json()
     assert body["location"] == "River side"
+
+
+def test_static_files_have_cache_control(client):
+    """Static assets should have an immutable Cache-Control header."""
+    res_js = client.get("/static/app.js")
+    assert "public" in res_js.headers.get("Cache-Control", "")
+    assert "immutable" in res_js.headers.get("Cache-Control", "")
+
+    res_css = client.get("/static/styles.css")
+    assert "public" in res_css.headers.get("Cache-Control", "")
+
+
+def test_cors_headers_allowed_origin(client):
+    """CORS headers must be returned for allowed origins."""
+    headers = {"Origin": "https://cleanair-zeta.vercel.app"}
+    res = client.post("/api/advice", json=payload(), headers=headers)
+    assert res.status_code == 200
+    assert res.headers.get("Access-Control-Allow-Origin") == "https://cleanair-zeta.vercel.app"
+
+
+def test_rate_limiter_blocks_burst_traffic(client):
+    """Bursts of requests eventually trigger HTTP 429 with detail."""
+    responses = [client.post("/api/advice", json=payload()).status_code for _ in range(35)]
+    assert 200 in responses
+    assert 429 in responses
+    blocked = client.post("/api/advice", json=payload())
+    assert blocked.status_code == 429
+    assert "Rate limit exceeded" in blocked.json().get("detail", "")

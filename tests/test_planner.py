@@ -1,10 +1,20 @@
 import json
 from datetime import date
 
-from app.planner import build_plan
+import pytest
+
+from app.planner import abuild_plan, build_plan, clear_cache
 
 SUMMER = date(2026, 7, 15)
 WINTER = date(2026, 12, 10)
+
+
+@pytest.fixture(autouse=True)
+def _reset_plan_cache():
+    """Ensure a clean plan cache before and after every test."""
+    clear_cache()
+    yield
+    clear_cache()
 
 
 class FakeGenerator:
@@ -89,3 +99,33 @@ def test_location_cannot_break_out_of_household_block(make_request):
     build_plan(req, today=SUMMER, generator=generator)
     _, prompt = generator.prompts[0]
     assert prompt.count("</household>") == 1
+
+
+def test_plan_cache_avoids_recomputation(make_request):
+    """Calling build_plan twice with identical inputs hits the cache."""
+    req = make_request(pm25=50.0)
+    p1 = build_plan(req, today=SUMMER)
+    p2 = build_plan(req, today=SUMMER)
+    assert p1 is p2
+
+
+def test_clear_cache_removes_cached_plans(make_request):
+    """clear_cache forces recomputation on subsequent calls."""
+    req = make_request(pm25=50.0)
+    p1 = build_plan(req, today=SUMMER)
+    clear_cache()
+    p2 = build_plan(req, today=SUMMER)
+    assert p1 is not p2
+    assert p1 == p2
+
+
+@pytest.mark.anyio
+async def test_abuild_plan_returns_complete_plan(make_request):
+    """Async planner builds a valid plan and supports caching."""
+    req = make_request(pm25=45.0)
+    p1 = await abuild_plan(req, today=SUMMER)
+    assert p1.risk_level == 2
+    assert p1.summary_source == "template"
+    # Second async call hits the cache
+    p2 = await abuild_plan(req, today=SUMMER)
+    assert p1 is p2

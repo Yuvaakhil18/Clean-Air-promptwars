@@ -114,3 +114,15 @@ class TestAnthropicTextGenerator:
         assert captured["headers"]["x-api-key"] == "sk-test-key"
         assert captured["headers"]["anthropic-version"] == "2023-06-01"
         assert captured["headers"]["content-type"] == "application/json"
+
+    @pytest.mark.anyio
+    async def test_agenerate_returns_text_content(self, monkeypatch):
+        """Asynchronous generation must extract text from content blocks."""
+        gen = AnthropicTextGenerator("sk-test", "claude-haiku-5-5", timeout=5.0)
+
+        async def mock_async_post(*args, **kwargs):
+            return self._mock_response("Async response")
+
+        monkeypatch.setattr(httpx.AsyncClient, "post", mock_async_post)
+        result = await gen.agenerate("system prompt", "user prompt")
+        assert result == "Async response"

@@ -2,10 +2,17 @@
 
 The decision rules live here. Each one reads the household and home context and
 decides what the user should be warned about and which impacts to explain.
+
+Both synchronous (:func:`build_plan`) and asynchronous (:func:`abuild_plan`)
+entry-points are provided so the FastAPI endpoint can run without blocking the
+event loop while the LLM call is in flight.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+from collections import OrderedDict
 from datetime import date
 
 from .advice import alternatives_for, indoor_tips_for, routines_for
@@ -22,9 +29,22 @@ from .impact import (
 )
 from .llm import TextGenerator
 from .models import AirPlan, AirRequest, CommuteMode, CookingFuel, Impact
-from .narrative import summarise
+from .narrative import asummarise, summarise
 
-__all__ = ["build_plan"]
+__all__ = ["abuild_plan", "build_plan", "clear_cache"]
+
+# ---------------------------------------------------------------------------
+# Simple LRU response cache (bounded, thread-safe for single-process async).
+# Identical requests within the same process lifetime hit the cache and
+# skip the LLM call entirely.
+# ---------------------------------------------------------------------------
+_CACHE_MAX = 128
+_plan_cache: OrderedDict[str, AirPlan] = OrderedDict()
+
+
+def clear_cache() -> None:
+    """Clear all entries from the in-memory plan cache."""
+    _plan_cache.clear()
 
 WINTER_MONTHS = {11, 12, 1, 2}
 DISCLAIMER = (
@@ -161,12 +181,34 @@ def warnings_for(req: AirRequest, assessment: Assessment, today: date) -> list[s
     return warnings
 
 
+def _cache_key(req: AirRequest, today: date, generator: object | None = None) -> str:
+    """Deterministic hash of the request + date + generator for cache lookup."""
+    gen_id = repr(generator) if generator is not None else "none"
+    blob = json.dumps(
+        {**req.model_dump(mode="json"), "today": today.isoformat(), "gen": gen_id},
+        sort_keys=True,
+    )
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
+def _cache_put(key: str, plan: AirPlan) -> None:
+    """Insert *plan* into the LRU cache, evicting oldest if full."""
+    _plan_cache[key] = plan
+    _plan_cache.move_to_end(key)
+    while len(_plan_cache) > _CACHE_MAX:
+        _plan_cache.popitem(last=False)
+
+
 def build_plan(req: AirRequest, today: date, generator: TextGenerator | None = None) -> AirPlan:
     """Orchestrate assessment, narrative, impacts, advice and warnings into a plan."""
+    key = _cache_key(req, today, generator)
+    if key in _plan_cache:
+        return _plan_cache[key]
+
     assessment = assess(req.pm25, req.aqi_scale)
     summary, personal_tips, summary_source = summarise(req, assessment, generator)
 
-    return AirPlan(
+    plan = AirPlan(
         location=req.location,
         risk_level=assessment.level,
         risk_label=assessment.label,
@@ -182,3 +224,36 @@ def build_plan(req: AirRequest, today: date, generator: TextGenerator | None = N
         warnings=warnings_for(req, assessment, today),
         disclaimer=DISCLAIMER,
     )
+    _cache_put(key, plan)
+    return plan
+
+
+async def abuild_plan(
+    req: AirRequest, today: date, generator: object | None = None,
+) -> AirPlan:
+    """Async variant of :func:`build_plan` — awaits the LLM call."""
+    key = _cache_key(req, today, generator)
+    if key in _plan_cache:
+        return _plan_cache[key]
+
+    assessment = assess(req.pm25, req.aqi_scale)
+    summary, personal_tips, summary_source = await asummarise(req, assessment, generator)
+
+    plan = AirPlan(
+        location=req.location,
+        risk_level=assessment.level,
+        risk_label=assessment.label,
+        measured=assessment.measured,
+        pm25=assessment.pm25,
+        summary=summary,
+        summary_source=summary_source,
+        personal_tips=personal_tips,
+        impacts=impacts_for(req, assessment),
+        routines=routines_for(req, assessment.level),
+        indoor_hacks=indoor_tips_for(req, assessment.level),
+        alternatives=alternatives_for(req, assessment.level),
+        warnings=warnings_for(req, assessment, today),
+        disclaimer=DISCLAIMER,
+    )
+    _cache_put(key, plan)
+    return plan

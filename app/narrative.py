@@ -21,6 +21,7 @@ __all__ = [
     "MAX_PERSONAL_TIPS",
     "SUMMARY_LIMIT",
     "TIP_LIMIT",
+    "asummarise",
     "build_user_prompt",
     "parse_summary",
     "summarise",
@@ -118,6 +119,7 @@ def parse_summary(raw: str) -> tuple[str, list[str]]:
 def summarise(
     req: AirRequest, assessment: Assessment, generator: TextGenerator | None
 ) -> tuple[str, list[str], str]:
+    """Generate a narrative summary (sync path)."""
     fallback = template_summary(req, assessment)
     if generator is None:
         return fallback, [], "template"
@@ -125,6 +127,31 @@ def summarise(
         raw = generator.generate(SYSTEM_PROMPT, build_user_prompt(req, assessment))
         summary, tips = parse_summary(raw)
         return summary, tips, "ai"
-    except Exception as exc:  # noqa: BLE001 - any provider, network or parsing failure degrades gracefully
+    except Exception as exc:
+        logger.warning("AI summary unavailable (%s); using template.", type(exc).__name__)
+        return fallback, [], "template"
+
+
+async def asummarise(
+    req: AirRequest, assessment: Assessment, generator: object | None,
+) -> tuple[str, list[str], str]:
+    """Generate a narrative summary (async path).
+
+    If the *generator* exposes an ``agenerate`` coroutine it is awaited so
+    the event loop is never blocked by a network call.  Otherwise the sync
+    ``generate`` method is used as a fallback.
+    """
+    fallback = template_summary(req, assessment)
+    if generator is None:
+        return fallback, [], "template"
+    try:
+        prompt = build_user_prompt(req, assessment)
+        if hasattr(generator, "agenerate"):
+            raw = await generator.agenerate(SYSTEM_PROMPT, prompt)
+        else:
+            raw = generator.generate(SYSTEM_PROMPT, prompt)  # type: ignore[union-attr]
+        summary, tips = parse_summary(raw)
+        return summary, tips, "ai"
+    except Exception as exc:
         logger.warning("AI summary unavailable (%s); using template.", type(exc).__name__)
         return fallback, [], "template"

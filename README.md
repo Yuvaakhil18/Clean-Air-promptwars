@@ -4,8 +4,8 @@
 
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com/)
-[![Tests](https://img.shields.io/badge/tests-126%20passed-success.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-96.71%25-brightgreen.svg)](pytest.ini)
+[![Tests](https://img.shields.io/badge/tests-137%20passed-success.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-97.14%25-brightgreen.svg)](pytest.ini)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 ---
@@ -98,25 +98,29 @@ The architecture is built on a **defense-in-depth, deterministic-first logic mod
 
 ### 🧹 Code Quality
 - **Clean Architecture:** Strict separation of concerns (`models.py`, `airquality.py`, `advice.py`, `impact.py`, `narrative.py`, `planner.py`, `main.py`).
-- **Standardized Typing:** Fully type-hinted with PEP 561 compliance ([app/py.typed](app/py.typed)).
-- **Docstrings & Clean Lint:** Complete PEP 257 docstrings and passes `ruff check` with **0 errors**.
+- **Modern Packaging:** Standardized `pyproject.toml` with PEP 621 metadata, tool configurations, and PEP 561 compliance ([app/py.typed](app/py.typed)).
+- **Standardized Typing:** Fully type-hinted and strict Pydantic v2 schemas.
+- **Docstrings & Clean Lint:** Complete PEP 257 docstrings across all modules and passes `ruff check` with **0 errors**.
 
 ### 🔒 Security
 - **Strict Content Security Policy (CSP):** `default-src 'self'` with no inline scripts or arbitrary remote scripts.
 - **Rate Limiting:** Protects the inference endpoint against denial of service and cost spam via `slowapi` (30 req/min).
-- **CORS Restricted:** Explicitly confined to localhost/127.0.0.1 origins.
+- **CORS Restricted:** Explicitly confined to verified production domains (`https://cleanair-zeta.vercel.app`) and localhost.
 - **Prompt Injection Defense:** Untrusted user inputs are XML-delimiter-escaped and quarantined within `<household>` tags under strict system instructions.
 - **Credential Hygiene:** API key is scrubbed from logs and `repr()` using dataclass `repr=False`.
 
 ### ⚡ Efficiency
-- Zero bulky frontend dependencies (vanilla JavaScript, pure modern CSS with CSS variables).
-- Microsecond deterministic physical calculations.
-- LLM is called strictly for the text narrative; all decision rules and physical formulas execute locally on the CPU.
+- **Non-Blocking Async Architecture:** End-to-end asynchronous pipeline (`async def create_advice`, `abuild_plan`, `asummarise`, `agenerate`) ensuring the event loop never blocks during external network calls.
+- **Bounded LRU Response Cache:** In-memory deterministic hashing cache avoids duplicate LLM invocations and redundant physical computations for identical household contexts.
+- **GZip Response Compression:** Starlette `GZipMiddleware` automatically compresses all responses $\ge 500$ bytes for minimal bandwidth usage and fast transfer times.
+- **Aggressive Static Asset Caching:** HTTP `Cache-Control: public, max-age=86400, immutable` headers for client and CDN caching of frontend scripts and styles.
+- **Zero Bulky Dependencies:** Vanilla JavaScript and pure modern CSS—no heavy SPA frameworks, sub-10KB initial page payload.
+- **Local CPU Calculations:** Physical formulas and decision tables execute in microseconds locally without hitting external APIs.
 
 ### 🧪 Testing
-- **126 automated test cases** across 9 test modules with **96.71% overall code coverage**.
+- **137 automated test cases** across 9 test modules with **97.14% overall code coverage**.
 - Enforced test thresholds in `pytest.ini` (`--cov-fail-under=85`).
-- Covers boundary values, model validators, failure fallbacks, division guards, and security headers.
+- Covers boundary values, model validators, failure fallbacks, division guards, async generators, cache hits, burst rate limiting, and security headers.
 
 ### ♿ Accessibility
 - Built using semantic HTML5 (`<main>`, `<fieldset>`, `<legend>`, `<label>`, `<article>`).
